@@ -67,6 +67,7 @@ import {
     HeritageClause,
     Identifier,
     IfStatement,
+    ImpliesKeyword,
     ImportAttribute,
     ImportAttributes,
     ImportClause,
@@ -342,6 +343,10 @@ export function isAsyncModifier(node: Node): node is AsyncKeyword {
 
 export function isAssertsKeyword(node: Node): node is AssertsKeyword {
     return node.kind === SyntaxKind.AssertsKeyword;
+}
+
+export function isImpliesKeyword(node: Node): node is ImpliesKeyword {
+    return node.kind === SyntaxKind.ImpliesKeyword;
 }
 
 export function isAwaitKeyword(node: Node): node is AwaitKeyword {

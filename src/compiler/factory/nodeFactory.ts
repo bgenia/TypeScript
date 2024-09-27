@@ -129,6 +129,7 @@ import {
     IfStatement,
     ImmediatelyInvokedArrowFunction,
     ImmediatelyInvokedFunctionExpression,
+    ImpliesKeyword,
     ImportAttribute,
     ImportAttributeName,
     ImportAttributes,
@@ -2281,21 +2282,22 @@ export function createNodeFactory(flags: NodeFactoryFlags, baseFactory: BaseNode
     }
 
     // @api
-    function createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined) {
+    function createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined) {
         const node = createBaseNode<TypePredicateNode>(SyntaxKind.TypePredicate);
         node.assertsModifier = assertsModifier;
         node.parameterName = asName(parameterName);
         node.type = type;
         node.transformFlags = TransformFlags.ContainsTypeScript;
+        node.impliesModifier = impliesModifier;
         return node;
     }
 
     // @api
-    function updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined) {
+    function updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined) {
         return node.assertsModifier !== assertsModifier
                 || node.parameterName !== parameterName
                 || node.type !== type
-            ? update(createTypePredicateNode(assertsModifier, parameterName, type), node)
+            ? update(createTypePredicateNode(assertsModifier, parameterName, type, impliesModifier), node)
             : node;
     }
 

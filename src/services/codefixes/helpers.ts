@@ -659,7 +659,7 @@ export function typePredicateToAutoImportableTypeNode(checker: TypeChecker, impo
         const importableReference = tryGetAutoImportableReferenceFromTypeNode(typePredicateNode.type, scriptTarget);
         if (importableReference) {
             importSymbols(importAdder, importableReference.symbols);
-            typePredicateNode = factory.updateTypePredicateNode(typePredicateNode, typePredicateNode.assertsModifier, typePredicateNode.parameterName, importableReference.typeNode);
+            typePredicateNode = factory.updateTypePredicateNode(typePredicateNode, typePredicateNode.assertsModifier, typePredicateNode.parameterName, importableReference.typeNode, typePredicateNode.impliesModifier);
         }
     }
     // Ensure nodes are fresh so they can have different positions when going through formatting.

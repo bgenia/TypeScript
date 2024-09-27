@@ -40,6 +40,7 @@ import {
     isHeritageClause,
     isIdentifier,
     isIdentifierOrThisTypeNode,
+    isImpliesKeyword,
     isImportAttribute,
     isImportAttributeName,
     isImportAttributes,
@@ -788,6 +789,7 @@ const visitEachChildTable: VisitEachChildTable = {
             nodeVisitor(node.assertsModifier, visitor, isAssertsKeyword),
             Debug.checkDefined(nodeVisitor(node.parameterName, visitor, isIdentifierOrThisTypeNode)),
             nodeVisitor(node.type, visitor, isTypeNode),
+            nodeVisitor(node.impliesModifier, visitor, isImpliesKeyword),
         );
     },
 
