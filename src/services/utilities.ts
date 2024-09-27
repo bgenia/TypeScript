@@ -2370,6 +2370,7 @@ export function createTextChange(span: TextSpan, newText: string): TextChange {
 export const typeKeywords: readonly SyntaxKind[] = [
     SyntaxKind.AnyKeyword,
     SyntaxKind.AssertsKeyword,
+    SyntaxKind.ImpliesKeyword,
     SyntaxKind.BigIntKeyword,
     SyntaxKind.BooleanKeyword,
     SyntaxKind.FalseKeyword,

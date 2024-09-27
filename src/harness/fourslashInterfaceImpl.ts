@@ -1455,6 +1455,7 @@ export namespace Completion {
         "any",
         "as",
         "asserts",
+        "implies",
         "async",
         "await",
         "bigint",

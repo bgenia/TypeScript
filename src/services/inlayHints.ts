@@ -562,6 +562,9 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
                     if (node.assertsModifier) {
                         parts.push({ text: "asserts " });
                     }
+                    if (node.impliesModifier) {
+                        parts.push({ text: "implies " });
+                    }
                     visitForDisplayParts(node.parameterName);
                     if (node.type) {
                         parts.push({ text: " is " });

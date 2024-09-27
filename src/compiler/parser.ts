@@ -665,9 +665,9 @@ const forEachChildTable: ForEachChildTable = {
     },
     [SyntaxKind.TypePredicate]: function forEachChildInTypePredicate<T>(node: TypePredicateNode, cbNode: (node: Node) => T | undefined, _cbNodes?: (nodes: NodeArray<Node>) => T | undefined): T | undefined {
         return visitNode(cbNode, node.assertsModifier) ||
+            visitNode(cbNode, node.impliesModifier) ||
             visitNode(cbNode, node.parameterName) ||
-            visitNode(cbNode, node.type) ||
-            visitNode(cbNode, node.impliesModifier);
+            visitNode(cbNode, node.type);
     },
     [SyntaxKind.TypeQuery]: function forEachChildInTypeQuery<T>(node: TypeQueryNode, cbNode: (node: Node) => T | undefined, cbNodes?: (nodes: NodeArray<Node>) => T | undefined): T | undefined {
         return visitNode(cbNode, node.exprName) ||
@@ -4929,6 +4929,7 @@ namespace Parser {
     function parseTypePredicatePrefix() {
         // TODO: Allow `implies is T`
         const impliesModifier = parseOptionalToken(SyntaxKind.ImpliesKeyword);
+
         const id = parseIdentifier();
         if (token() === SyntaxKind.IsKeyword && !scanner.hasPrecedingLineBreak()) {
             nextToken();
