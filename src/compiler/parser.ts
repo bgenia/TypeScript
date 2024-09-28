@@ -164,6 +164,7 @@ import {
     isStringOrNumericLiteralLike,
     isTaggedTemplateExpression,
     isTemplateLiteralKind,
+    isTypePredicateOperator,
     isTypeReferenceNode,
     IterationStatement,
     JSDoc,
@@ -383,6 +384,7 @@ import {
     TypeOperatorNode,
     TypeParameterDeclaration,
     TypePredicateNode,
+    TypePredicateOperatorToken,
     TypeQueryNode,
     TypeReferenceNode,
     UnaryExpression,
@@ -3816,7 +3818,15 @@ namespace Parser {
 
     function parseThisTypePredicate(lhs: ThisTypeNode): TypePredicateNode {
         nextToken();
-        return finishNode(factory.createTypePredicateNode(/*assertsModifier*/ undefined, lhs, parseType()), lhs.pos);
+        const type = parseType();
+
+        let nextPredicate: TypePredicateNode | undefined;
+
+        if (isTypePredicateOperator(token())) {
+            nextPredicate = parseAdvancedTypePredicate();
+        }
+
+        return finishNode(factory.createTypePredicateNode(/*assertsModifier*/ undefined, lhs, type, factoryCreateToken(SyntaxKind.LessThanMinusGreaterThanToken), /*negationModifier*/ undefined, nextPredicate), lhs.pos);
     }
 
     function parseThisTypeNode(): ThisTypeNode {
@@ -4084,6 +4094,7 @@ namespace Parser {
 
     function parseReturnType(returnToken: SyntaxKind.EqualsGreaterThanToken, isType: boolean): TypeNode;
     function parseReturnType(returnToken: SyntaxKind.ColonToken | SyntaxKind.EqualsGreaterThanToken, isType: boolean): TypeNode | undefined;
+
     function parseReturnType(returnToken: SyntaxKind.ColonToken | SyntaxKind.EqualsGreaterThanToken, isType: boolean) {
         if (shouldParseReturnType(returnToken, isType)) {
             return allowConditionalTypesAnd(parseTypeOrTypePredicate);
@@ -4900,12 +4911,20 @@ namespace Parser {
         return false;
     }
 
-    function parseTypeOrTypePredicate(): TypeNode {
+    function parseTypeOrTypePredicate(): TypeNode {        
         const pos = getNodePos();
+
+        if (isTypePredicateOperator(token())) {
+            return parseAdvancedTypePredicate();
+        }
+
         const typePredicateVariable = isIdentifier() && tryParse(parseTypePredicatePrefix);
         const type = parseType();
+
+        const nextPredicate = isTypePredicateOperator(token()) ? parseAdvancedTypePredicate() : undefined;
+
         if (typePredicateVariable) {
-            return finishNode(factory.createTypePredicateNode(/*assertsModifier*/ undefined, typePredicateVariable, type), pos);
+            return finishNode(factory.createTypePredicateNode(/*assertsModifier*/ undefined, typePredicateVariable, type, factoryCreateToken(SyntaxKind.LessThanMinusGreaterThanToken), /*negationModifier*/ undefined, nextPredicate), pos);
         }
         else {
             return type;
@@ -4925,7 +4944,49 @@ namespace Parser {
         const assertsModifier = parseExpectedToken(SyntaxKind.AssertsKeyword);
         const parameterName = token() === SyntaxKind.ThisKeyword ? parseThisTypeNode() : parseIdentifier();
         const type = parseOptional(SyntaxKind.IsKeyword) ? parseType() : undefined;
-        return finishNode(factory.createTypePredicateNode(assertsModifier, parameterName, type), pos);
+
+        const nextPredicate = isTypePredicateOperator(token()) ? parseAdvancedTypePredicate() : undefined;
+
+        return finishNode(factory.createTypePredicateNode(assertsModifier, parameterName, type, factoryCreateToken(SyntaxKind.LessThanMinusGreaterThanToken), /*negationModifier*/ undefined, nextPredicate), pos);
+    }
+
+    function parseAdvancedTypePredicate(): TypePredicateNode {
+        let result: TypePredicateNode | undefined;
+
+        do {
+            const pos = getNodePos();
+            const operator = parseTypePredicateOperator();
+            const assertsModifier = parseOptionalToken(SyntaxKind.AssertsKeyword);
+            const parameterName = token() === SyntaxKind.ThisKeyword ? parseThisTypeNode() : parseIdentifier();
+            const negationModifier = parseOptionalToken(SyntaxKind.ExclamationToken);
+
+            parseExpected(SyntaxKind.IsKeyword);
+
+            const type = parseType();
+
+            result = finishNode(factory.createTypePredicateNode(assertsModifier, parameterName, type, operator, negationModifier, result), pos);
+        }
+        while (isTypePredicateOperator(token()));
+
+        return result;
+    }
+
+    function parseTypePredicateOperator(): TypePredicateOperatorToken {
+        let operator;
+
+        operator = parseOptionalToken(SyntaxKind.MinusMinusGreaterThanToken);
+
+        if (operator) {
+            return operator;
+        }
+
+        operator = parseOptionalToken(SyntaxKind.ExclamationMinusGreaterThanToken);
+
+        if (operator) {
+            return operator;
+        }
+
+        return parseExpectedToken(SyntaxKind.LessThanMinusGreaterThanToken);
     }
 
     function parseType(): TypeNode {

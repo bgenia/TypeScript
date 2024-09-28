@@ -49,6 +49,7 @@ import {
     EnumDeclaration,
     EnumMember,
     EqualsGreaterThanToken,
+    ExclamationMinusGreaterThanToken,
     ExclamationToken,
     ExportAssignment,
     ExportDeclaration,
@@ -138,10 +139,12 @@ import {
     JsxText,
     LabeledStatement,
     LiteralTypeNode,
+    LessThanMinusGreaterThanToken,
     MappedTypeNode,
     MetaProperty,
     MethodDeclaration,
     MethodSignature,
+    MinusMinusGreaterThanToken,
     MinusToken,
     MissingDeclaration,
     ModuleBlock,
@@ -295,6 +298,18 @@ export function isAsteriskToken(node: Node): node is AsteriskToken {
 
 export function isExclamationToken(node: Node): node is ExclamationToken {
     return node.kind === SyntaxKind.ExclamationToken;
+}
+
+export function isLessThanMinusGreaterThanToken(node: Node): node is LessThanMinusGreaterThanToken {
+    return node.kind === SyntaxKind.LessThanMinusGreaterThanToken;
+}
+
+export function isMinusMinusGreaterThanToken(node: Node): node is MinusMinusGreaterThanToken {
+    return node.kind === SyntaxKind.MinusMinusGreaterThanToken;
+}
+
+export function isExclamationMinusGreaterThanToken(node: Node): node is ExclamationMinusGreaterThanToken {
+    return node.kind === SyntaxKind.ExclamationMinusGreaterThanToken;
 }
 
 export function isQuestionToken(node: Node): node is QuestionToken {

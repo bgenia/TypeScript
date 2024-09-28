@@ -444,6 +444,7 @@ import {
     TypeOperatorNode,
     TypeParameterDeclaration,
     TypePredicateNode,
+    TypePredicateOperatorToken,
     TypeQueryNode,
     TypeReferenceNode,
     UnionOrIntersectionTypeNode,
@@ -2281,21 +2282,24 @@ export function createNodeFactory(flags: NodeFactoryFlags, baseFactory: BaseNode
     }
 
     // @api
-    function createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined) {
+    function createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined, operator: TypePredicateOperatorToken, negationModifier: ExclamationToken | undefined, nextTypeOrPredicate: TypeNode | undefined) {
         const node = createBaseNode<TypePredicateNode>(SyntaxKind.TypePredicate);
         node.assertsModifier = assertsModifier;
         node.parameterName = asName(parameterName);
         node.type = type;
         node.transformFlags = TransformFlags.ContainsTypeScript;
+        node.operator = operator;
+        node.negationModifier = negationModifier;
+        node.nextTypeOrPredicate = nextTypeOrPredicate;
         return node;
     }
 
     // @api
-    function updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined) {
+    function updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined, operator: TypePredicateOperatorToken, negationModifier: ExclamationToken | undefined, nextTypeOrPredicate: TypeNode | undefined) {
         return node.assertsModifier !== assertsModifier
                 || node.parameterName !== parameterName
                 || node.type !== type
-            ? update(createTypePredicateNode(assertsModifier, parameterName, type), node)
+            ? update(createTypePredicateNode(assertsModifier, parameterName, type, operator, negationModifier, nextTypeOrPredicate), node)
             : node;
     }
 

@@ -84,6 +84,7 @@ import {
     isTypeElement,
     isTypeNode,
     isTypeParameterDeclaration,
+    isTypePredicateOperatorToken,
     isVariableDeclaration,
     isVariableDeclarationList,
     LexicalEnvironmentFlags,
@@ -782,12 +783,15 @@ const visitEachChildTable: VisitEachChildTable = {
     },
 
     // Types
-    [SyntaxKind.TypePredicate]: function visitEachChildOfTypePredicateNode(node, visitor, context, _nodesVisitor, nodeVisitor, _tokenVisitor) {
+    [SyntaxKind.TypePredicate]: function visitEachChildOfTypePredicateNode(node, visitor, context, _nodesVisitor, nodeVisitor, tokenVisitor) {
         return context.factory.updateTypePredicateNode(
             node,
             nodeVisitor(node.assertsModifier, visitor, isAssertsKeyword),
             Debug.checkDefined(nodeVisitor(node.parameterName, visitor, isIdentifierOrThisTypeNode)),
             nodeVisitor(node.type, visitor, isTypeNode),
+            tokenVisitor ? Debug.checkDefined(nodeVisitor(node.operator, tokenVisitor, isTypePredicateOperatorToken)) : node.operator,
+            nodeVisitor(node.negationModifier, visitor, isExclamationToken),
+            nodeVisitor(node.nextTypeOrPredicate, visitor, isTypeNode),
         );
     },
 

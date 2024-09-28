@@ -7667,7 +7667,27 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 setEmitFlags(factory.createIdentifier(typePredicate.parameterName), EmitFlags.NoAsciiEscaping) :
                 factory.createThisTypeNode();
             const typeNode = typePredicate.type && typeToTypeNodeHelper(typePredicate.type, context);
-            return factory.createTypePredicateNode(assertsModifier, parameterName, typeNode);
+
+            const operator = factory.createToken(typePredicate.operator);
+            const negationModifier = typePredicate.isNegated ? factory.createToken(SyntaxKind.ExclamationToken) : undefined;
+
+            let nextTypeOrPredicate;
+
+            switch (typePredicate.next?.kind) {
+                case "predicate": {
+                    nextTypeOrPredicate = typePredicateToTypePredicateNodeHelper(typePredicate.next.value, context);
+                    break;
+                }
+                case "type": {
+                    nextTypeOrPredicate = typeToTypeNodeHelper(typePredicate.next.value, context);
+                    break;
+                }
+                default: {
+                    nextTypeOrPredicate = undefined;
+                }
+            }
+
+            return factory.createTypePredicateNode(assertsModifier, parameterName, typeNode, operator, negationModifier, nextTypeOrPredicate);
         }
 
         function getEffectiveParameterDeclaration(parameterSymbol: Symbol): ParameterDeclaration | JSDocParameterTag | undefined {
@@ -9030,7 +9050,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     else {
                         parameterName = factory.cloneNode(node.parameterName);
                     }
-                    return factory.updateTypePredicateNode(node, factory.cloneNode(node.assertsModifier), parameterName, visitNode(node.type, visitExistingNodeTreeSymbols, isTypeNode));
+                    return factory.updateTypePredicateNode(node, factory.cloneNode(node.assertsModifier), parameterName, visitNode(node.type, visitExistingNodeTreeSymbols, isTypeNode), factory.cloneNode(node.operator), factory.cloneNode(node.negationModifier), visitNode(node.nextTypeOrPredicate, visitExistingNodeTreeSymbols, isTypeNode));
                 }
 
                 if (isTupleTypeNode(node) || isTypeLiteralNode(node) || isMappedTypeNode(node)) {

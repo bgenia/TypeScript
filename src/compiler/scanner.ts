@@ -232,6 +232,9 @@ const textToToken = new Map(Object.entries({
     "...": SyntaxKind.DotDotDotToken,
     ";": SyntaxKind.SemicolonToken,
     ",": SyntaxKind.CommaToken,
+    "<->": SyntaxKind.LessThanMinusGreaterThanToken,
+    "-->": SyntaxKind.MinusMinusGreaterThanToken,
+    "!->": SyntaxKind.ExclamationMinusGreaterThanToken,
     "<": SyntaxKind.LessThanToken,
     ">": SyntaxKind.GreaterThanToken,
     "<=": SyntaxKind.LessThanEqualsToken,
@@ -1967,6 +1970,12 @@ export function createScanner(
                         }
                         return pos += 2, token = SyntaxKind.ExclamationEqualsToken;
                     }
+                    if (
+                        charCodeUnchecked(pos + 1) === CharacterCodes.minus &&
+                        charCodeUnchecked(pos + 2) === CharacterCodes.greaterThan
+                    ) {
+                        return pos += 3, token = SyntaxKind.ExclamationMinusGreaterThanToken;
+                    }
                     pos++;
                     return token = SyntaxKind.ExclamationToken;
                 case CharacterCodes.doubleQuote:
@@ -2033,6 +2042,13 @@ export function createScanner(
                     pos++;
                     return token = SyntaxKind.CommaToken;
                 case CharacterCodes.minus:
+                    // FIXME: This breaks `(x--)>y` supposedly
+                    if (
+                        charCodeUnchecked(pos + 1) === CharacterCodes.minus &&
+                        charCodeUnchecked(pos + 2) === CharacterCodes.greaterThan
+                    ) {
+                        return pos += 3, token = SyntaxKind.MinusMinusGreaterThanToken;
+                    }
                     if (charCodeUnchecked(pos + 1) === CharacterCodes.minus) {
                         return pos += 2, token = SyntaxKind.MinusMinusToken;
                     }
@@ -2199,6 +2215,12 @@ export function createScanner(
                     }
                     if (charCodeUnchecked(pos + 1) === CharacterCodes.equals) {
                         return pos += 2, token = SyntaxKind.LessThanEqualsToken;
+                    }
+                    if (
+                        charCodeUnchecked(pos + 1) === CharacterCodes.minus &&
+                        charCodeUnchecked(pos + 2) === CharacterCodes.greaterThan
+                    ) {
+                        return pos += 3, token = SyntaxKind.LessThanMinusGreaterThanToken;
                     }
                     if (
                         languageVariant === LanguageVariant.JSX &&

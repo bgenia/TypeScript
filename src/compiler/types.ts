@@ -87,6 +87,9 @@ export const enum SyntaxKind {
     EqualsGreaterThanToken,
     PlusToken,
     MinusToken,
+    LessThanMinusGreaterThanToken,
+    MinusMinusGreaterThanToken,
+    ExclamationMinusGreaterThanToken,
     AsteriskToken,
     AsteriskAsteriskToken,
     SlashToken,
@@ -535,6 +538,9 @@ export type PunctuationSyntaxKind =
     | SyntaxKind.EqualsGreaterThanToken
     | SyntaxKind.PlusToken
     | SyntaxKind.MinusToken
+    | SyntaxKind.LessThanMinusGreaterThanToken
+    | SyntaxKind.MinusMinusGreaterThanToken
+    | SyntaxKind.ExclamationMinusGreaterThanToken
     | SyntaxKind.AsteriskToken
     | SyntaxKind.AsteriskAsteriskToken
     | SyntaxKind.SlashToken
@@ -1602,6 +1608,9 @@ export type DotToken = PunctuationToken<SyntaxKind.DotToken>;
 export type DotDotDotToken = PunctuationToken<SyntaxKind.DotDotDotToken>;
 export type QuestionToken = PunctuationToken<SyntaxKind.QuestionToken>;
 export type ExclamationToken = PunctuationToken<SyntaxKind.ExclamationToken>;
+export type LessThanMinusGreaterThanToken = PunctuationToken<SyntaxKind.LessThanMinusGreaterThanToken>;
+export type MinusMinusGreaterThanToken = PunctuationToken<SyntaxKind.MinusMinusGreaterThanToken>;
+export type ExclamationMinusGreaterThanToken = PunctuationToken<SyntaxKind.ExclamationMinusGreaterThanToken>;
 export type ColonToken = PunctuationToken<SyntaxKind.ColonToken>;
 export type EqualsToken = PunctuationToken<SyntaxKind.EqualsToken>;
 export type AmpersandAmpersandEqualsToken = PunctuationToken<SyntaxKind.AmpersandAmpersandEqualsToken>;
@@ -2244,12 +2253,44 @@ export interface TypeReferenceNode extends NodeWithTypeArguments {
     readonly typeName: EntityName;
 }
 
+export type TypePredicateOperator =
+    | SyntaxKind.LessThanMinusGreaterThanToken // <-> equivalence
+    | SyntaxKind.MinusMinusGreaterThanToken // ->  implication
+    | SyntaxKind.ExclamationMinusGreaterThanToken; // !-> negative implication
+
+export function isTypePredicateOperator(kind: SyntaxKind): kind is TypePredicateOperator {
+    return kind === SyntaxKind.LessThanMinusGreaterThanToken
+        || kind === SyntaxKind.MinusMinusGreaterThanToken
+        || kind === SyntaxKind.ExclamationMinusGreaterThanToken;
+}
+
+export type TypePredicateOperatorToken = Token<TypePredicateOperator>;
+
+export function isTypePredicateOperatorToken(node: Node): node is TypePredicateOperatorToken {
+    return isTypePredicateOperator(node.kind);
+}
+
 export interface TypePredicateNode extends TypeNode {
     readonly kind: SyntaxKind.TypePredicate;
     readonly parent: SignatureDeclaration | JSDocTypeExpression;
+    readonly operator: TypePredicateOperatorToken;
     readonly assertsModifier?: AssertsKeyword;
+    readonly negationModifier?: ExclamationToken;
     readonly parameterName: Identifier | ThisTypeNode;
     readonly type?: TypeNode;
+
+    /**
+     * Next predicate or type node.
+     *
+     * This is a low-effort attempt to impliement multi-predicates without changing too much code.
+     * Each predicate can have either:
+     *  - A next predicate, meaning it's a logical conjunction of the type predicate and the next predicate. (e.g. `: -> a is T -> b is U`)
+     *  - A next other type, meaning a function returns that type and applies the preceding predicates. (e.g. `: T -> b is U`)
+     *  - Nothing, meaning the chain is finished.
+     *
+     * For example, a signature of form `: X -> a is T -> b is U` would have a node of form `(-> a is T) => (-> b is U) => X`.
+     */
+    readonly nextTypeOrPredicate?: TypeNode;
 }
 
 export interface TypeQueryNode extends NodeWithTypeArguments {
@@ -5623,7 +5664,14 @@ export const enum TypePredicateKind {
 export interface TypePredicateBase {
     kind: TypePredicateKind;
     type: Type | undefined;
+    operator: TypePredicateOperator;
+    isNegated: boolean;
+    next:
+        | { kind: "predicate", value: TypePredicate }
+        | { kind: "type", value: Type }
+        | undefined;
 }
+
 
 export interface ThisTypePredicate extends TypePredicateBase {
     kind: TypePredicateKind.This;
@@ -8781,8 +8829,8 @@ export interface NodeFactory {
     //
 
     createKeywordTypeNode<TKind extends KeywordTypeSyntaxKind>(kind: TKind): KeywordTypeNode<TKind>;
-    createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined): TypePredicateNode;
-    updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined): TypePredicateNode;
+    createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined, operator: TypePredicateOperatorToken, negationModifier: ExclamationToken | undefined, nextTypeOrPredicate: TypeNode | undefined): TypePredicateNode;
+    updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined, operator: TypePredicateOperatorToken, negationModifier: ExclamationToken | undefined, nextTypeOrPredicate: TypeNode | undefined): TypePredicateNode;
     createTypeReferenceNode(typeName: string | EntityName, typeArguments?: readonly TypeNode[]): TypeReferenceNode;
     updateTypeReferenceNode(node: TypeReferenceNode, typeName: EntityName, typeArguments: NodeArray<TypeNode> | undefined): TypeReferenceNode;
     createFunctionTypeNode(typeParameters: readonly TypeParameterDeclaration[] | undefined, parameters: readonly ParameterDeclaration[], type: TypeNode): FunctionTypeNode;
