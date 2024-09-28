@@ -29422,7 +29422,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
 
         function getNarrowedType(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean, isImplicative: boolean, isNegated: boolean): Type {
-            const key = type.flags & TypeFlags.Union ? `N${getTypeId(type)},${getTypeId(candidate)},${(assumeTrue ? 1 : 0) | (checkDerived ? 2 : 0)}` : undefined;
+            const key = type.flags & TypeFlags.Union ? `N${getTypeId(type)},${getTypeId(candidate)},${(assumeTrue ? 1 : 0) | (checkDerived ? 2 : 0)},${isImplicative ? 1 : 0},${isNegated ? 1 : 0}` : undefined;
             return getCachedType(key) ?? setCachedType(key, getNarrowedTypeWorker(type, candidate, assumeTrue, checkDerived, isImplicative, isNegated));
         }
 
