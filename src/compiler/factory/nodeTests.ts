@@ -159,6 +159,7 @@ import {
     NonNullExpression,
     NoSubstitutionTemplateLiteral,
     NotEmittedStatement,
+    NotKeyword,
     NumericLiteral,
     ObjectBindingPattern,
     ObjectLiteralExpression,
@@ -347,6 +348,10 @@ export function isAssertsKeyword(node: Node): node is AssertsKeyword {
 
 export function isImpliesKeyword(node: Node): node is ImpliesKeyword {
     return node.kind === SyntaxKind.ImpliesKeyword;
+}
+
+export function isNotKeyword(node: Node): node is NotKeyword {
+    return node.kind === SyntaxKind.NotKeyword;
 }
 
 export function isAwaitKeyword(node: Node): node is AwaitKeyword {

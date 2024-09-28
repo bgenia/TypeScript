@@ -2371,6 +2371,7 @@ export const typeKeywords: readonly SyntaxKind[] = [
     SyntaxKind.AnyKeyword,
     SyntaxKind.AssertsKeyword,
     SyntaxKind.ImpliesKeyword,
+    SyntaxKind.NotKeyword,
     SyntaxKind.BigIntKeyword,
     SyntaxKind.BooleanKeyword,
     SyntaxKind.FalseKeyword,

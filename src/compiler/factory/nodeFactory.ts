@@ -334,6 +334,7 @@ import {
     NoSubstitutionTemplateLiteral,
     NotEmittedStatement,
     NotEmittedTypeElement,
+    NotKeyword,
     NullLiteral,
     nullNodeConverters,
     nullParenthesizerRules,
@@ -2282,22 +2283,25 @@ export function createNodeFactory(flags: NodeFactoryFlags, baseFactory: BaseNode
     }
 
     // @api
-    function createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined) {
+    function createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined, notModifier: NotKeyword | undefined) {
         const node = createBaseNode<TypePredicateNode>(SyntaxKind.TypePredicate);
         node.assertsModifier = assertsModifier;
+        node.impliesModifier = impliesModifier;
         node.parameterName = asName(parameterName);
         node.type = type;
+        node.notModifier = notModifier;
         node.transformFlags = TransformFlags.ContainsTypeScript;
-        node.impliesModifier = impliesModifier;
         return node;
     }
 
     // @api
-    function updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined) {
+    function updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined, notModifier: NotKeyword | undefined) {
         return node.assertsModifier !== assertsModifier
+                || node.impliesModifier !== impliesModifier
                 || node.parameterName !== parameterName
                 || node.type !== type
-            ? update(createTypePredicateNode(assertsModifier, parameterName, type, impliesModifier), node)
+                || node.notModifier !== notModifier
+            ? update(createTypePredicateNode(assertsModifier, parameterName, type, impliesModifier, notModifier), node)
             : node;
     }
 

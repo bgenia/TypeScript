@@ -568,6 +568,9 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
                     visitForDisplayParts(node.parameterName);
                     if (node.type) {
                         parts.push({ text: " is " });
+                        if (node.notModifier) {
+                            parts.push({ text: "not "})
+                        }
                         visitForDisplayParts(node.type);
                     }
                     break;

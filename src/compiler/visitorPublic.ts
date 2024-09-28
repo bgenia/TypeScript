@@ -65,6 +65,7 @@ import {
     isModuleReference,
     isNamedExportBindings,
     isNamedImportBindings,
+    isNotKeyword,
     isObjectLiteralElementLike,
     isOptionalChain,
     isParameter,
@@ -790,6 +791,7 @@ const visitEachChildTable: VisitEachChildTable = {
             Debug.checkDefined(nodeVisitor(node.parameterName, visitor, isIdentifierOrThisTypeNode)),
             nodeVisitor(node.type, visitor, isTypeNode),
             nodeVisitor(node.impliesModifier, visitor, isImpliesKeyword),
+            nodeVisitor(node.notModifier, visitor, isNotKeyword),
         );
     },
 

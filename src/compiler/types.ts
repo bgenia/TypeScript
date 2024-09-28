@@ -189,6 +189,7 @@ export const enum SyntaxKind {
     AsKeyword,
     AssertsKeyword,
     ImpliesKeyword,
+    NotKeyword,
     AssertKeyword,
     AnyKeyword,
     AsyncKeyword,
@@ -585,6 +586,7 @@ export type KeywordSyntaxKind =
     | SyntaxKind.AsKeyword
     | SyntaxKind.AssertsKeyword
     | SyntaxKind.ImpliesKeyword
+    | SyntaxKind.NotKeyword
     | SyntaxKind.AssertKeyword
     | SyntaxKind.AsyncKeyword
     | SyntaxKind.AwaitKeyword
@@ -1621,6 +1623,7 @@ export interface KeywordToken<TKind extends KeywordSyntaxKind> extends Token<TKi
 
 export type AssertsKeyword = KeywordToken<SyntaxKind.AssertsKeyword>;
 export type ImpliesKeyword = KeywordToken<SyntaxKind.ImpliesKeyword>;
+export type NotKeyword = KeywordToken<SyntaxKind.NotKeyword>;
 export type AssertKeyword = KeywordToken<SyntaxKind.AssertKeyword>;
 export type AwaitKeyword = KeywordToken<SyntaxKind.AwaitKeyword>;
 export type CaseKeyword = KeywordToken<SyntaxKind.CaseKeyword>;
@@ -2251,9 +2254,10 @@ export interface TypePredicateNode extends TypeNode {
     readonly kind: SyntaxKind.TypePredicate;
     readonly parent: SignatureDeclaration | JSDocTypeExpression;
     readonly assertsModifier?: AssertsKeyword;
-    readonly parameterName: Identifier | ThisTypeNode;
-    readonly type?: TypeNode;
     readonly impliesModifier?: ImpliesKeyword;
+    readonly parameterName: Identifier | ThisTypeNode;
+    readonly notModifier?: NotKeyword;
+    readonly type?: TypeNode;
 }
 
 export interface TypeQueryNode extends NodeWithTypeArguments {
@@ -5628,6 +5632,7 @@ export interface TypePredicateBase {
     kind: TypePredicateKind;
     type: Type | undefined;
     isImplicative: boolean;
+    isNegated: boolean;
 }
 
 export interface ThisTypePredicate extends TypePredicateBase {
@@ -8786,8 +8791,8 @@ export interface NodeFactory {
     //
 
     createKeywordTypeNode<TKind extends KeywordTypeSyntaxKind>(kind: TKind): KeywordTypeNode<TKind>;
-    createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined): TypePredicateNode;
-    updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined): TypePredicateNode;
+    createTypePredicateNode(assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode | string, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined, notModifier: NotKeyword | undefined): TypePredicateNode;
+    updateTypePredicateNode(node: TypePredicateNode, assertsModifier: AssertsKeyword | undefined, parameterName: Identifier | ThisTypeNode, type: TypeNode | undefined, impliesModifier: ImpliesKeyword | undefined, notModifier: NotKeyword | undefined): TypePredicateNode;
     createTypeReferenceNode(typeName: string | EntityName, typeArguments?: readonly TypeNode[]): TypeReferenceNode;
     updateTypeReferenceNode(node: TypeReferenceNode, typeName: EntityName, typeArguments: NodeArray<TypeNode> | undefined): TypeReferenceNode;
     createFunctionTypeNode(typeParameters: readonly TypeParameterDeclaration[] | undefined, parameters: readonly ParameterDeclaration[], type: TypeNode): FunctionTypeNode;

@@ -2140,7 +2140,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     var markerSubTypeForCheck = createTypeParameter();
     markerSubTypeForCheck.constraint = markerSuperTypeForCheck;
 
-    var noTypePredicate = createTypePredicate(TypePredicateKind.Identifier, "<<unresolved>>", 0, anyType, /*isImplicative*/ false);
+    var noTypePredicate = createTypePredicate(TypePredicateKind.Identifier, "<<unresolved>>", 0, anyType, /*isImplicative*/ false, /*isNegated*/ false);
 
     var anySignature = createSignature(/*declaration*/ undefined, /*typeParameters*/ undefined, /*thisParameter*/ undefined, emptyArray, anyType, /*resolvedTypePredicate*/ undefined, 0, SignatureFlags.None);
     var unknownSignature = createSignature(/*declaration*/ undefined, /*typeParameters*/ undefined, /*thisParameter*/ undefined, emptyArray, errorType, /*resolvedTypePredicate*/ undefined, 0, SignatureFlags.None);
@@ -7668,7 +7668,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 factory.createThisTypeNode();
             const typeNode = typePredicate.type && typeToTypeNodeHelper(typePredicate.type, context);
             const impliesMofifier = typePredicate.isImplicative ? factory.createToken(SyntaxKind.ImpliesKeyword) : undefined;
-            return factory.createTypePredicateNode(assertsModifier, parameterName, typeNode, impliesMofifier);
+            const notModifier = typePredicate.isNegated ? factory.createToken(SyntaxKind.NotKeyword) : undefined;
+            return factory.createTypePredicateNode(assertsModifier, parameterName, typeNode, impliesMofifier, notModifier);
         }
 
         function getEffectiveParameterDeclaration(parameterSymbol: Symbol): ParameterDeclaration | JSDocParameterTag | undefined {
@@ -9031,7 +9032,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     else {
                         parameterName = factory.cloneNode(node.parameterName);
                     }
-                    return factory.updateTypePredicateNode(node, factory.cloneNode(node.assertsModifier), parameterName, visitNode(node.type, visitExistingNodeTreeSymbols, isTypeNode), factory.cloneNode(node.impliesModifier));
+                    return factory.updateTypePredicateNode(node, factory.cloneNode(node.assertsModifier), parameterName, visitNode(node.type, visitExistingNodeTreeSymbols, isTypeNode), factory.cloneNode(node.impliesModifier), factory.cloneNode(node.notModifier));
                 }
 
                 if (isTupleTypeNode(node) || isTypeLiteralNode(node) || isMappedTypeNode(node)) {
@@ -15623,8 +15624,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return isPropertyDeclaration(node) && !hasAccessorModifier(node) && node.questionToken;
     }
 
-    function createTypePredicate(kind: TypePredicateKind, parameterName: string | undefined, parameterIndex: number | undefined, type: Type | undefined, isImplicative: boolean): TypePredicate {
-        return { kind, parameterName, parameterIndex, type, isImplicative } as TypePredicate;
+    function createTypePredicate(kind: TypePredicateKind, parameterName: string | undefined, parameterIndex: number | undefined, type: Type | undefined, isImplicative: boolean, isNegated: boolean): TypePredicate {
+        return { kind, parameterName, parameterIndex, type, isImplicative, isNegated } as TypePredicate;
     }
 
     /**
@@ -15965,8 +15966,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const parameterName = node.parameterName;
         const type = node.type && getTypeFromTypeNode(node.type);
         return parameterName.kind === SyntaxKind.ThisType ?
-            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsThis : TypePredicateKind.This, /*parameterName*/ undefined, /*parameterIndex*/ undefined, type, !!node.impliesModifier) :
-            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsIdentifier : TypePredicateKind.Identifier, parameterName.escapedText as string, findIndex(signature.parameters, p => p.escapedName === parameterName.escapedText), type, !!node.impliesModifier);
+            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsThis : TypePredicateKind.This, /*parameterName*/ undefined, /*parameterIndex*/ undefined, type, !!node.impliesModifier, !!node.notModifier) :
+            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsIdentifier : TypePredicateKind.Identifier, parameterName.escapedText as string, findIndex(signature.parameters, p => p.escapedName === parameterName.escapedText), type, !!node.impliesModifier, !!node.notModifier);
     }
 
     function getUnionOrIntersectionType(types: Type[], kind: TypeFlags | undefined, unionReduction?: UnionReduction) {
@@ -17895,7 +17896,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             return undefined;
         }
         const compositeType = getUnionOrIntersectionType(types, kind);
-        return createTypePredicate(last.kind, last.parameterName, last.parameterIndex, compositeType, last.isImplicative);
+        return createTypePredicate(last.kind, last.parameterName, last.parameterIndex, compositeType, last.isImplicative, last.isNegated);
     }
 
     function typePredicateKindsMatch(a: TypePredicate, b: TypePredicate): boolean {
@@ -20153,7 +20154,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     }
 
     function instantiateTypePredicate(predicate: TypePredicate, mapper: TypeMapper): TypePredicate {
-        return createTypePredicate(predicate.kind, predicate.parameterName, predicate.parameterIndex, instantiateType(predicate.type, mapper), predicate.isImplicative);
+        return createTypePredicate(predicate.kind, predicate.parameterName, predicate.parameterIndex, instantiateType(predicate.type, mapper), predicate.isImplicative, predicate.isNegated);
     }
 
     function instantiateSignature(signature: Signature, mapper: TypeMapper, eraseTypeParameters?: boolean): Signature {
@@ -29094,7 +29095,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const targetType = hasStaticModifier(Debug.checkDefined(symbol.valueDeclaration, "should always have a declaration"))
                 ? getTypeOfSymbol(classSymbol) as InterfaceType
                 : getDeclaredTypeOfSymbol(classSymbol);
-            return getNarrowedType(type, targetType, assumeTrue, /*checkDerived*/ true, /*isImplicative*/ false);
+            return getNarrowedType(type, targetType, assumeTrue, /*checkDerived*/ true, /*isImplicative*/ false, /*isNegated*/ false);
         }
 
         function narrowTypeByOptionalChainContainment(type: Type, operator: SyntaxKind, value: Expression, assumeTrue: boolean): Type {
@@ -29389,7 +29390,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const signature = getEffectsSignature(expr);
             const predicate = signature && getTypePredicateOfSignature(signature);
             if (predicate && predicate.kind === TypePredicateKind.Identifier && predicate.parameterIndex === 0) {
-                return getNarrowedType(type, predicate.type, assumeTrue, /*checkDerived*/ true, /*isImplicative*/ false);
+                return getNarrowedType(type, predicate.type, assumeTrue, /*checkDerived*/ true, /*isImplicative*/ false, /*isNegated*/ false);
             }
             if (!isTypeDerivedFrom(rightType, globalFunctionType)) {
                 return type;
@@ -29403,7 +29404,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             ) {
                 return type;
             }
-            return getNarrowedType(type, instanceType, assumeTrue, /*checkDerived*/ true, /*isImplicative*/ false);
+            return getNarrowedType(type, instanceType, assumeTrue, /*checkDerived*/ true, /*isImplicative*/ false, /*isNegated*/ false);
         }
 
         function getInstanceType(constructorType: Type) {
@@ -29420,12 +29421,20 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             return emptyObjectType;
         }
 
-        function getNarrowedType(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean, isImplicative: boolean): Type {
+        function getNarrowedType(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean, isImplicative: boolean, isNegated: boolean): Type {
             const key = type.flags & TypeFlags.Union ? `N${getTypeId(type)},${getTypeId(candidate)},${(assumeTrue ? 1 : 0) | (checkDerived ? 2 : 0)}` : undefined;
-            return getCachedType(key) ?? setCachedType(key, getNarrowedTypeWorker(type, candidate, assumeTrue, checkDerived, isImplicative));
+            return getCachedType(key) ?? setCachedType(key, getNarrowedTypeWorker(type, candidate, assumeTrue, checkDerived, isImplicative, isNegated));
         }
 
-        function getNarrowedTypeWorker(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean, isImplicative: boolean) {
+        function getNarrowedTypeWorker(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean, isImplicative: boolean, isNegated: boolean) {
+            if (isNegated) {
+                if (isImplicative && !assumeTrue) {
+                    return type;
+                }
+
+                return getNarrowedTypeWorker(type, candidate, !assumeTrue, checkDerived, /*isImplicative*/ false, /*isNegated*/ false);
+            }
+
             if (!assumeTrue) {
                 if (isImplicative) {
                     return type;
@@ -29437,7 +29446,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 if (checkDerived) {
                     return filterType(type, t => !isTypeDerivedFrom(t, candidate));
                 }
-                const trueType = getNarrowedType(type, candidate, /*assumeTrue*/ true, /*checkDerived*/ false, isImplicative);
+                const trueType = getNarrowedType(type, candidate, /*assumeTrue*/ true, /*checkDerived*/ false, isImplicative, isNegated);
                 return filterType(type, t => !isTypeSubsetOf(t, trueType));
             }
             if (type.flags & TypeFlags.AnyOrUnknown) {
@@ -29509,7 +29518,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 const predicateArgument = getTypePredicateArgument(predicate, callExpression);
                 if (predicateArgument) {
                     if (isMatchingReference(reference, predicateArgument)) {
-                        return getNarrowedType(type, predicate.type, assumeTrue, /*checkDerived*/ false, predicate.isImplicative);
+                        return getNarrowedType(type, predicate.type, assumeTrue, /*checkDerived*/ false, predicate.isImplicative, predicate.isNegated);
                     }
                     if (
                         strictNullChecks && optionalChainContainsReference(predicateArgument, reference) &&
@@ -29522,7 +29531,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     }
                     const access = getDiscriminantPropertyAccess(predicateArgument, type);
                     if (access) {
-                        return narrowTypeByDiscriminant(type, access, t => getNarrowedType(t, predicate.type!, assumeTrue, /*checkDerived*/ false, predicate.isImplicative));
+                        return narrowTypeByDiscriminant(type, access, t => getNarrowedType(t, predicate.type!, assumeTrue, /*checkDerived*/ false, predicate.isImplicative, predicate.isNegated));
                     }
                 }
             }
@@ -38709,7 +38718,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             }
             const trueType = checkIfExpressionRefinesParameter(func, expr, param, initType);
             if (trueType) {
-                return createTypePredicate(TypePredicateKind.Identifier, unescapeLeadingUnderscores(param.name.escapedText), i, trueType, /*isImplicative*/ false);
+                return createTypePredicate(TypePredicateKind.Identifier, unescapeLeadingUnderscores(param.name.escapedText), i, trueType, /*isImplicative*/ false, /*isNegated*/ false);
             }
         });
     }
