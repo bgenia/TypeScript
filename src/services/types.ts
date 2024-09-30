@@ -906,6 +906,7 @@ export const enum InlayHintKind {
     Type = "Type",
     Parameter = "Parameter",
     Enum = "Enum",
+    TypeParameterVariance = "TypeParameterVariance"
 }
 
 export interface InlayHint {

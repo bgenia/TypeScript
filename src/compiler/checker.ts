@@ -1940,6 +1940,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         getMemberOverrideModifierStatus,
         isTypeParameterPossiblyReferenced,
         typeHasCallOrConstructSignatures,
+        getOrComputeTypeParameterVarianceModifiers,
         getSymbolFlags,
     };
 
@@ -49742,6 +49743,39 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function typeHasCallOrConstructSignatures(type: Type): boolean {
         return getSignaturesOfType(type, SignatureKind.Call).length !== 0 || getSignaturesOfType(type, SignatureKind.Construct).length !== 0;
+    }
+
+    // Returns declared variance modifers if present, computes variance otherwise.
+    function getOrComputeTypeParameterVarianceModifiers(node: TypeParameterDeclaration): ModifierFlags {
+        if (isInterfaceDeclaration(node.parent) || isClassLike(node.parent) || isTypeAliasDeclaration(node.parent)) {
+            const typeParameter = getDeclaredTypeOfTypeParameter(getSymbolOfDeclaration(node));
+            const modifiers = getTypeParameterModifiers(typeParameter) & (ModifierFlags.In | ModifierFlags.Out);
+            if (modifiers) {
+                return modifiers;
+            }
+            else {
+                const symbol = getSymbolOfDeclaration(node.parent);
+                tracing?.push(tracing.Phase.CheckTypes, "computeTypeParameterVarianceModifiers", { parent: getTypeId(getDeclaredTypeOfSymbol(symbol)), id: getTypeId(typeParameter) });
+                const subType = createMarkerType(symbol, typeParameter, markerSubTypeForCheck);
+                const superType = createMarkerType(symbol, typeParameter, markerSuperTypeForCheck);
+                const saveVarianceTypeParameter = typeParameter;
+                varianceTypeParameter = typeParameter;
+                const isCovariantlyAssignable = isTypeAssignableTo(subType, superType);
+                const isContravariantlyAssignable = isTypeAssignableTo(superType, subType);
+                varianceTypeParameter = saveVarianceTypeParameter;
+                tracing?.pop();
+                if (isCovariantlyAssignable && !isContravariantlyAssignable) {
+                    return ModifierFlags.Out;
+                }
+                if (isContravariantlyAssignable && !isCovariantlyAssignable) {
+                    return ModifierFlags.In;
+                }
+                if (!isCovariantlyAssignable && !isContravariantlyAssignable) {
+                    return ModifierFlags.In | ModifierFlags.Out;
+                }
+            }
+        }
+        return ModifierFlags.None;
     }
 
     function getRootSymbols(symbol: Symbol): readonly Symbol[] {

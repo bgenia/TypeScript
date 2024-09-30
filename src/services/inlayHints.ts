@@ -3,6 +3,9 @@ import {
     ArrowFunction,
     CallExpression,
     CharacterCodes,
+    ClassDeclaration,
+    ClassExpression,
+    ClassLikeDeclaration,
     createPrinterWithRemoveComments,
     createTextSpanFromNode,
     Debug,
@@ -34,6 +37,7 @@ import {
     InlayHintDisplayPart,
     InlayHintKind,
     InlayHintsContext,
+    InterfaceDeclaration,
     isArrayBindingPattern,
     isArrayTypeNode,
     isArrowFunction,
@@ -42,6 +46,9 @@ import {
     isBindingPattern,
     isCallExpression,
     isCallSignatureDeclaration,
+    isClassDeclaration,
+    isClassExpression,
+    isClassLike,
     isConditionalTypeNode,
     isConstructorTypeNode,
     isEnumMember,
@@ -58,6 +65,7 @@ import {
     isIndexSignatureDeclaration,
     isInferTypeNode,
     isInfinityOrNaNString,
+    isInterfaceDeclaration,
     isIntersectionTypeNode,
     isLiteralExpression,
     isLiteralTypeNode,
@@ -86,6 +94,7 @@ import {
     isTemplateTail,
     isThisTypeNode,
     isTupleTypeNode,
+    isTypeAliasDeclaration,
     isTypeLiteralNode,
     isTypeNode,
     isTypeOperatorNode,
@@ -98,6 +107,7 @@ import {
     isVariableDeclaration,
     LiteralLikeNode,
     MethodDeclaration,
+    ModifierFlags,
     NewExpression,
     Node,
     NodeArray,
@@ -118,6 +128,7 @@ import {
     tokenToString,
     TupleTypeReference,
     Type,
+    TypeAliasDeclaration,
     TypeFlags,
     TypePredicate,
     unescapeLeadingUnderscores,
@@ -140,6 +151,12 @@ function shouldShowLiteralParameterNameHintsOnly(preferences: UserPreferences) {
 
 function shouldUseInteractiveInlayHints(preferences: UserPreferences) {
     return preferences.interactiveInlayHints === true;
+}
+
+function shouldShowTypeParameterVarianceHints(_preferences: UserPreferences) {
+    // return preferences.includeInlayTypeParameterVarianceHints === true;
+    // FIXME: Remove after debug
+    return true;
 }
 
 /** @internal */
@@ -192,6 +209,15 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
         else if (shouldShowParameterNameHints(preferences) && (isCallExpression(node) || isNewExpression(node))) {
             visitCallOrNewExpression(node);
         }
+        else if (
+            shouldShowTypeParameterVarianceHints(preferences) && (
+                isTypeAliasDeclaration(node) ||
+                isInterfaceDeclaration(node) ||
+                isClassLike(node)
+            )
+        ) {
+            visitParametrizedTypeDeclaration(node);
+        }
         else {
             if (preferences.includeInlayFunctionParameterTypeHints && isFunctionLikeDeclaration(node) && hasContextSensitiveParameters(node)) {
                 visitFunctionLikeForParameterType(node);
@@ -224,6 +250,23 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
             kind: InlayHintKind.Parameter,
             whitespaceAfter: true,
             displayParts,
+        });
+    }
+
+    function addTypeParameterVarianceHints(modifiers: ModifierFlags, position: number) {
+        let text = "";
+
+        if (modifiers & ModifierFlags.In) {
+            text += "in ";
+        }
+        if (modifiers & ModifierFlags.Out) {
+            text += "out ";
+        }
+
+        result.push({
+            text,
+            position,
+            kind: InlayHintKind.TypeParameterVariance,
         });
     }
 
@@ -287,6 +330,22 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
                 return;
             }
             addTypeHints(hintParts, decl.name.end);
+        }
+    }
+
+    function visitParametrizedTypeDeclaration(node: TypeAliasDeclaration | InterfaceDeclaration | ClassLikeDeclaration) {
+        if (!node.typeParameters) {
+            return;
+        }
+
+        for (const typeParameter of node.typeParameters) {
+            if (typeParameter.modifiers) {
+                continue;
+            }
+
+            const varianceModifiers = checker.getOrComputeTypeParameterVarianceModifiers(typeParameter);
+
+            addTypeParameterVarianceHints(varianceModifiers, typeParameter.getStart());
         }
     }
 
@@ -877,6 +936,20 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
                     Debug.assertNode(node, isThisTypeNode);
                     parts.push({ text: "this" });
                     break;
+                case SyntaxKind.TypeAliasDeclaration:
+                    Debug.assertNode(node, isTypeAliasDeclaration);
+
+                    for (const typeParameter of node.typeParameters ?? []) {
+                        parts.push({ text: `cringe(${typeParameter.name.text})` });
+                    }
+
+                    break;
+                // case SyntaxKind.InterfaceDeclaration:
+                //     break;
+                // case SyntaxKind.ClassDeclaration:
+                //     break;
+                // case SyntaxKind.ClassExpression:
+                //     break;
                 default:
                     Debug.failBadSyntaxKind(node);
             }
