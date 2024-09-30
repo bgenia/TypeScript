@@ -106,6 +106,7 @@ import {
     TypeChecker,
     TypeFormatFlags,
     TypeParameter,
+    TypeParameterDeclaration,
     typeToDisplayParts,
     VariableDeclaration,
 } from "./_namespaces/ts.js";
@@ -488,6 +489,9 @@ function getSymbolDisplayPartsDocumentationAndSymbolKindWorker(typeChecker: Type
         displayParts.push(textPart("type parameter"));
         displayParts.push(punctuationPart(SyntaxKind.CloseParenToken));
         displayParts.push(spacePart());
+        const decl = getDeclarationOfKind<TypeParameterDeclaration>(symbol, SyntaxKind.TypeParameter);
+        if (decl === undefined) return Debug.fail();
+        addTypeParameterVarianceModifiers(decl);
         addFullSymbolName(symbol);
         if (symbol.parent) {
             // Class/Interface type parameter
@@ -497,8 +501,6 @@ function getSymbolDisplayPartsDocumentationAndSymbolKindWorker(typeChecker: Type
         }
         else {
             // Method/function type parameter
-            const decl = getDeclarationOfKind(symbol, SyntaxKind.TypeParameter);
-            if (decl === undefined) return Debug.fail();
             const declaration = decl.parent;
 
             if (declaration) {
@@ -861,6 +863,18 @@ function getSymbolDisplayPartsDocumentationAndSymbolKindWorker(typeChecker: Type
             getPrinter().writeList(ListFormat.TypeParameters, params, getSourceFileOfNode(getParseTreeNode(enclosingDeclaration)), writer);
         });
         addRange(displayParts, typeParameterParts);
+    }
+
+    function addTypeParameterVarianceModifiers(decl: TypeParameterDeclaration) {
+        const varianceModifiers = typeChecker.getOrComputeTypeParameterVarianceModifiers(decl);
+        let stringifiedModifiers = "";
+        if (varianceModifiers & ModifierFlags.In) {
+            stringifiedModifiers += "in ";
+        }
+        if (varianceModifiers & ModifierFlags.Out) {
+            stringifiedModifiers += "out ";
+        }
+        displayParts.push(textPart(`${stringifiedModifiers}`));
     }
 }
 
