@@ -1087,6 +1087,7 @@ import {
     TypePredicate,
     TypePredicateKind,
     TypePredicateNode,
+    TypePredicateOperator,
     TypeQueryNode,
     TypeReference,
     TypeReferenceNode,
@@ -1174,6 +1175,12 @@ const enum IterationTypeKind {
     Yield,
     Return,
     Next,
+}
+
+const enum FlowNarrowingMode {
+    Implication = SyntaxKind.MinusMinusGreaterThanToken,
+    NegativeImplication = SyntaxKind.ExclamationMinusGreaterThanToken,
+    Equivalence = SyntaxKind.LessThanMinusGreaterThanToken
 }
 
 interface IterationTypesResolver {
@@ -2140,7 +2147,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     var markerSubTypeForCheck = createTypeParameter();
     markerSubTypeForCheck.constraint = markerSuperTypeForCheck;
 
-    var noTypePredicate = createTypePredicate(TypePredicateKind.Identifier, "<<unresolved>>", 0, anyType);
+    var noTypePredicate = createTypePredicate(TypePredicateKind.Identifier, "<<unresolved>>", 0, anyType, SyntaxKind.LessThanMinusGreaterThanToken, /*isNegated*/ false, /*next*/ undefined);
 
     var anySignature = createSignature(/*declaration*/ undefined, /*typeParameters*/ undefined, /*thisParameter*/ undefined, emptyArray, anyType, /*resolvedTypePredicate*/ undefined, 0, SignatureFlags.None);
     var unknownSignature = createSignature(/*declaration*/ undefined, /*typeParameters*/ undefined, /*thisParameter*/ undefined, emptyArray, errorType, /*resolvedTypePredicate*/ undefined, 0, SignatureFlags.None);
@@ -15642,8 +15649,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return isPropertyDeclaration(node) && !hasAccessorModifier(node) && node.questionToken;
     }
 
-    function createTypePredicate(kind: TypePredicateKind, parameterName: string | undefined, parameterIndex: number | undefined, type: Type | undefined): TypePredicate {
-        return { kind, parameterName, parameterIndex, type } as TypePredicate;
+    function createTypePredicate(kind: TypePredicateKind, parameterName: string | undefined, parameterIndex: number | undefined, type: Type | undefined, operator: TypePredicateOperator, isNegated: boolean, next: TypePredicate["next"]): TypePredicate {
+        return { kind, parameterName, parameterIndex, type, operator, isNegated, next } as TypePredicate;
     }
 
     /**
@@ -15983,9 +15990,18 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     function createTypePredicateFromTypePredicateNode(node: TypePredicateNode, signature: Signature): TypePredicate {
         const parameterName = node.parameterName;
         const type = node.type && getTypeFromTypeNode(node.type);
+
+        let next: TypePredicate["next"];
+        if (node.nextTypeOrPredicate && isTypePredicateNode(node.nextTypeOrPredicate)) {
+            next = { kind: "predicate", value: createTypePredicateFromTypePredicateNode(node.nextTypeOrPredicate, signature) };
+        }
+        // FIXME: This should somehow work for the (return type + predicates) feature
+        // if (node.nextTypeOrPredicate && isTypeNode(node.nextTypeOrPredicate)) {
+        //     // next = { kind: "type", value: }
+        // }
         return parameterName.kind === SyntaxKind.ThisType ?
-            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsThis : TypePredicateKind.This, /*parameterName*/ undefined, /*parameterIndex*/ undefined, type) :
-            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsIdentifier : TypePredicateKind.Identifier, parameterName.escapedText as string, findIndex(signature.parameters, p => p.escapedName === parameterName.escapedText), type);
+            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsThis : TypePredicateKind.This, /*parameterName*/ undefined, /*parameterIndex*/ undefined, type, node.operator.kind, !!node.negationModifier, next) :
+            createTypePredicate(node.assertsModifier ? TypePredicateKind.AssertsIdentifier : TypePredicateKind.Identifier, parameterName.escapedText as string, findIndex(signature.parameters, p => p.escapedName === parameterName.escapedText), type, node.operator.kind, !!node.negationModifier, next);
     }
 
     function getUnionOrIntersectionType(types: Type[], kind: TypeFlags | undefined, unionReduction?: UnionReduction) {
@@ -17914,7 +17930,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             return undefined;
         }
         const compositeType = getUnionOrIntersectionType(types, kind);
-        return createTypePredicate(last.kind, last.parameterName, last.parameterIndex, compositeType);
+        // FIXME: This is probably mega broken, should investigate what this even does lmao
+        return createTypePredicate(last.kind, last.parameterName, last.parameterIndex, compositeType, last.operator, last.isNegated, last.next);
     }
 
     function typePredicateKindsMatch(a: TypePredicate, b: TypePredicate): boolean {
@@ -20172,7 +20189,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     }
 
     function instantiateTypePredicate(predicate: TypePredicate, mapper: TypeMapper): TypePredicate {
-        return createTypePredicate(predicate.kind, predicate.parameterName, predicate.parameterIndex, instantiateType(predicate.type, mapper));
+        // FIXME: Bruh
+        return createTypePredicate(predicate.kind, predicate.parameterName, predicate.parameterIndex, instantiateType(predicate.type, mapper), predicate.operator, predicate.isNegated, predicate.next?.kind === "predicate" ? { kind: "predicate", value: instantiateTypePredicate(predicate.next.value, mapper) } : predicate.next?.kind === "type" ? { kind: "type", value: instantiateType(predicate.next.value, mapper) } : undefined);
     }
 
     function instantiateSignature(signature: Signature, mapper: TypeMapper, eraseTypeParameters?: boolean): Signature {
@@ -29113,7 +29131,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const targetType = hasStaticModifier(Debug.checkDefined(symbol.valueDeclaration, "should always have a declaration"))
                 ? getTypeOfSymbol(classSymbol) as InterfaceType
                 : getDeclaredTypeOfSymbol(classSymbol);
-            return getNarrowedType(type, targetType, assumeTrue, /*checkDerived*/ true);
+            return getNarrowedType(type, targetType, assumeTrue, /*checkDerived*/ true, FlowNarrowingMode.Equivalence, /*isNegated*/ false);
         }
 
         function narrowTypeByOptionalChainContainment(type: Type, operator: SyntaxKind, value: Expression, assumeTrue: boolean): Type {
@@ -29408,7 +29426,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const signature = getEffectsSignature(expr);
             const predicate = signature && getTypePredicateOfSignature(signature);
             if (predicate && predicate.kind === TypePredicateKind.Identifier && predicate.parameterIndex === 0) {
-                return getNarrowedType(type, predicate.type, assumeTrue, /*checkDerived*/ true);
+                return getNarrowedType(type, predicate.type, assumeTrue, /*checkDerived*/ true, FlowNarrowingMode.Equivalence, /*isNegated*/ false);
             }
             if (!isTypeDerivedFrom(rightType, globalFunctionType)) {
                 return type;
@@ -29422,7 +29440,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             ) {
                 return type;
             }
-            return getNarrowedType(type, instanceType, assumeTrue, /*checkDerived*/ true);
+            return getNarrowedType(type, instanceType, assumeTrue, /*checkDerived*/ true, FlowNarrowingMode.Equivalence, /*isNegated*/ false);
         }
 
         function getInstanceType(constructorType: Type) {
@@ -29439,22 +29457,35 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             return emptyObjectType;
         }
 
-        function getNarrowedType(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean): Type {
-            const key = type.flags & TypeFlags.Union ? `N${getTypeId(type)},${getTypeId(candidate)},${(assumeTrue ? 1 : 0) | (checkDerived ? 2 : 0)}` : undefined;
-            return getCachedType(key) ?? setCachedType(key, getNarrowedTypeWorker(type, candidate, assumeTrue, checkDerived));
+        function getNarrowedType(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean, mode: FlowNarrowingMode, isNegated: boolean): Type {
+            const key = type.flags & TypeFlags.Union ? `N${getTypeId(type)},${getTypeId(candidate)},${(assumeTrue ? 1 : 0) | (checkDerived ? 2 : 0)},${mode},${isNegated ? 1 : 0}` : undefined;
+            return getCachedType(key) ?? setCachedType(key, getNarrowedTypeWorker(type, candidate, assumeTrue, checkDerived, mode, isNegated));
         }
 
-        function getNarrowedTypeWorker(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean) {
+        function getNarrowedTypeWorker(type: Type, candidate: Type, assumeTrue: boolean, checkDerived: boolean, mode: FlowNarrowingMode, isNegated: boolean) {
+            if (isNegated) {
+                return getNarrowedTypeWorker(type, candidate, !assumeTrue, checkDerived, mode, /*isNegated*/ false);
+            }
+
             if (!assumeTrue) {
+                if (mode === FlowNarrowingMode.Implication) {
+                    return type;
+                }
+
                 if (type === candidate) {
                     return neverType;
                 }
                 if (checkDerived) {
                     return filterType(type, t => !isTypeDerivedFrom(t, candidate));
                 }
-                const trueType = getNarrowedType(type, candidate, /*assumeTrue*/ true, /*checkDerived*/ false);
+                const trueType = getNarrowedType(type, candidate, /*assumeTrue*/ true, /*checkDerived*/ false, FlowNarrowingMode.Equivalence, /*isNegated*/ false);
                 return filterType(type, t => !isTypeSubsetOf(t, trueType));
             }
+
+            if (mode === FlowNarrowingMode.NegativeImplication) {
+                return type;
+            }
+
             if (type.flags & TypeFlags.AnyOrUnknown) {
                 return candidate;
             }
@@ -29524,7 +29555,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 const predicateArgument = getTypePredicateArgument(predicate, callExpression);
                 if (predicateArgument) {
                     if (isMatchingReference(reference, predicateArgument)) {
-                        return getNarrowedType(type, predicate.type, assumeTrue, /*checkDerived*/ false);
+                        return recursivelyNarrowTypeByTypePredicate(type, predicate, assumeTrue);
                     }
                     if (
                         strictNullChecks && optionalChainContainsReference(predicateArgument, reference) &&
@@ -29537,11 +29568,48 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     }
                     const access = getDiscriminantPropertyAccess(predicateArgument, type);
                     if (access) {
-                        return narrowTypeByDiscriminant(type, access, t => getNarrowedType(t, predicate.type!, assumeTrue, /*checkDerived*/ false));
+                        return narrowTypeByDiscriminant(type, access, t => recursivelyNarrowTypeByTypePredicate(t, predicate, assumeTrue));
                     }
                 }
             }
             return type;
+        }
+
+        function recursivelyNarrowTypeByTypePredicate(type: Type, predicate: TypePredicate, assumeTrue: boolean) {
+            const narrowedTypes = [];
+            let currentPredicate: TypePredicate | undefined = predicate;
+
+            while (currentPredicate) {
+                let mode
+
+                switch (currentPredicate.operator) {
+                    case SyntaxKind.MinusMinusGreaterThanToken: {
+                        mode = FlowNarrowingMode.Implication;
+                        break;
+                    }
+                    case SyntaxKind.ExclamationMinusGreaterThanToken: {
+                        mode = FlowNarrowingMode.NegativeImplication;
+                        break;
+                    }
+                    default: {
+                        mode = FlowNarrowingMode.Equivalence;
+                    }
+                }
+
+                if (currentPredicate.type) {
+                    const narrowedType = getNarrowedType(type, currentPredicate.type, assumeTrue, /*checkDerived*/ false, mode, currentPredicate.isNegated);
+
+                    narrowedTypes.push(narrowedType);
+                }
+                currentPredicate = currentPredicate.next?.kind === "predicate" ? currentPredicate.next.value : undefined;
+                // currentPredicate = undefined;
+            }
+
+            if (narrowedTypes.length === 1) {
+                return narrowedTypes[0];
+            }
+
+            return createIntersectionType(narrowedTypes, ObjectFlags.None);
         }
 
         // Narrow the given type based on the given expression having the assumed boolean value. The returned type
@@ -38724,7 +38792,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             }
             const trueType = checkIfExpressionRefinesParameter(func, expr, param, initType);
             if (trueType) {
-                return createTypePredicate(TypePredicateKind.Identifier, unescapeLeadingUnderscores(param.name.escapedText), i, trueType);
+                return createTypePredicate(TypePredicateKind.Identifier, unescapeLeadingUnderscores(param.name.escapedText), i, trueType, SyntaxKind.LessThanMinusGreaterThanToken, /*isNegated*/ false, /*next*/ undefined);
             }
         });
     }

@@ -164,6 +164,7 @@ import {
     isStringOrNumericLiteralLike,
     isTaggedTemplateExpression,
     isTemplateLiteralKind,
+    isTypePredicateNode,
     isTypePredicateOperator,
     isTypeReferenceNode,
     IterationStatement,
@@ -666,9 +667,12 @@ const forEachChildTable: ForEachChildTable = {
             visitNodes(cbNode, cbNodes, node.typeArguments);
     },
     [SyntaxKind.TypePredicate]: function forEachChildInTypePredicate<T>(node: TypePredicateNode, cbNode: (node: Node) => T | undefined, _cbNodes?: (nodes: NodeArray<Node>) => T | undefined): T | undefined {
-        return visitNode(cbNode, node.assertsModifier) ||
+        return visitNode(cbNode, node.operator) ||
+            visitNode(cbNode, node.assertsModifier) ||
             visitNode(cbNode, node.parameterName) ||
-            visitNode(cbNode, node.type);
+            visitNode(cbNode, node.negationModifier) ||
+            visitNode(cbNode, node.type) ||
+            visitNode(cbNode, node.nextTypeOrPredicate);
     },
     [SyntaxKind.TypeQuery]: function forEachChildInTypeQuery<T>(node: TypeQueryNode, cbNode: (node: Node) => T | undefined, cbNodes?: (nodes: NodeArray<Node>) => T | undefined): T | undefined {
         return visitNode(cbNode, node.exprName) ||
@@ -4951,10 +4955,10 @@ namespace Parser {
     }
 
     function parseAdvancedTypePredicate(): TypePredicateNode {
+        const pos = getNodePos();
         let result: TypePredicateNode | undefined;
 
         do {
-            const pos = getNodePos();
             const operator = parseTypePredicateOperator();
             const assertsModifier = parseOptionalToken(SyntaxKind.AssertsKeyword);
             const parameterName = token() === SyntaxKind.ThisKeyword ? parseThisTypeNode() : parseIdentifier();
@@ -4964,9 +4968,20 @@ namespace Parser {
 
             const type = parseType();
 
-            result = finishNode(factory.createTypePredicateNode(assertsModifier, parameterName, type, operator, negationModifier, result), pos);
+            result = factory.createTypePredicateNode(assertsModifier, parameterName, type, operator, negationModifier, result);
         }
         while (isTypePredicateOperator(token()));
+
+        function finishAdvancedTypePredicate(node: TypePredicateNode, pos: number) {
+            if (node.nextTypeOrPredicate && isTypePredicateNode(node.nextTypeOrPredicate)) {
+                finishAdvancedTypePredicate(node.nextTypeOrPredicate, pos);
+            }
+            finishNode(node, pos)
+        }
+
+        if (result) {
+            finishAdvancedTypePredicate(result, pos);
+        }
 
         return result;
     }
