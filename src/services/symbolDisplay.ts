@@ -867,14 +867,14 @@ function getSymbolDisplayPartsDocumentationAndSymbolKindWorker(typeChecker: Type
 
     function addTypeParameterVarianceModifiers(decl: TypeParameterDeclaration) {
         const varianceModifiers = typeChecker.getOrComputeTypeParameterVarianceModifiers(decl);
-        let stringifiedModifiers = "";
         if (varianceModifiers & ModifierFlags.In) {
-            stringifiedModifiers += "in ";
+            displayParts.push(keywordPart(SyntaxKind.InKeyword));
+            displayParts.push(spacePart());
         }
         if (varianceModifiers & ModifierFlags.Out) {
-            stringifiedModifiers += "out ";
+            displayParts.push(keywordPart(SyntaxKind.OutKeyword));
+            displayParts.push(spacePart());
         }
-        displayParts.push(textPart(`${stringifiedModifiers}`));
     }
 }
 
