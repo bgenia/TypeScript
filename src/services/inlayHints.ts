@@ -149,10 +149,8 @@ function shouldUseInteractiveInlayHints(preferences: UserPreferences) {
     return preferences.interactiveInlayHints === true;
 }
 
-function shouldShowTypeParameterVarianceHints(_preferences: UserPreferences) {
-    // return preferences.includeInlayTypeParameterVarianceHints === true;
-    // FIXME: Remove after debug
-    return true;
+function shouldShowTypeParameterVarianceHints(preferences: UserPreferences) {
+    return preferences.includeInlayTypeParameterVarianceHints === true;
 }
 
 /** @internal */
@@ -262,7 +260,7 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
         result.push({
             text,
             position,
-            kind: InlayHintKind.TypeParameterVariance,
+            kind: InlayHintKind.Parameter,
         });
     }
 

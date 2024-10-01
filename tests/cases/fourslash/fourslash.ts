@@ -711,6 +711,7 @@ declare namespace FourSlashInterface {
         readonly includeInlayPropertyDeclarationTypeHints?: boolean;
         readonly includeInlayFunctionLikeReturnTypeHints?: boolean;
         readonly includeInlayEnumMemberValueHints?: boolean;
+        readonly includeInlayTypeParameterVarianceHints?: boolean;
         readonly interactiveInlayHints?: boolean;
     }
     interface CompletionsOptions {
