@@ -251,16 +251,21 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
         let text = "";
 
         if (modifiers & ModifierFlags.In) {
-            text += "in ";
+            text += "in";
+
+            if (modifiers & ModifierFlags.Out) {
+                text += " ";
+            }
         }
         if (modifiers & ModifierFlags.Out) {
-            text += "out ";
+            text += "out";
         }
 
         result.push({
             text,
             position,
-            kind: InlayHintKind.Parameter,
+            kind: InlayHintKind.TypeParameterVariance,
+            whitespaceAfter: true,
         });
     }
 
